@@ -1,4 +1,6 @@
 #include "Vector.h"
+#include <iostream>
+#include <vector>
 
 template <typename T, typename Alloc>
 template <typename Iter>
@@ -110,29 +112,57 @@ Vector<T, Alloc>::Vector(size_t n, const T& value)
 }
 
 template <typename T, typename Alloc>
-Vector<T, Alloc>::Vector(const Vector<T>& other) {
-	if (this->capacity() < other.size()) {
-		for (T* del = begin_; del != end_; ++del) {
+Vector<T, Alloc>::Vector(const Vector& other) {
+	begin_ = AllocTraits::allocate(alloc, other.size());
+	T* it = begin_;
+	try {
+		for (size_t i = 0; i != other.size(); ++i) {
+			AllocTraits::construct(alloc, it, other[i]);
+			++it;
+		}
+	}
+	catch (...) {
+		for (auto del = begin_; del != it; ++del) {
 			AllocTraits::destroy(alloc, del);
 		}
-		AllocTraits::deallocate(alloc, begin_, this->size());
+		AllocTraits::deallocate(alloc, begin_, other.size());
 	}
+	
+	end_ = it;
+	cap_ = it;
+}
 
-	T* new_begin = (this->capacity() < other.size()) ? AllocTraits::allocate(alloc, other.size()) : begin_;
+template <typename T, typename Alloc>
+Vector<T, Alloc>& Vector<T, Alloc>::operator= (const Vector& other) {
+	T* new_begin = AllocTraits::allocate(alloc, std::max(this->capacity(), other.size()));
 	T* it = new_begin;
-	for (size_t i = 0; i != other.size(); ++i) {
-		AllocTraits::construct(alloc, it, other[i]);
-		++it;
+	try {
+		for (size_t i = 0; i != other.size(); ++i) {
+			AllocTraits::construct(alloc, it, other[i]);
+			++it;
+		}
+	}
+	catch (...) {
+		for (auto del = new_begin; del != it; ++it) {
+			AllocTraits::destroy(alloc, del);
+		}
+		AllocTraits::deallocate(alloc, new_begin, other.size());
 	}
 
+	for (auto del = begin_; del != end_; ++del) {
+		AllocTraits::destroy(alloc, del);
+	}
+	AllocTraits::deallocate(alloc, begin_, this->capacity());
+	
 	begin_ = new_begin;
 	end_ = it;
 	cap_ = it;
+
 	return *this;
 }
 
 template <typename T, typename Alloc>
-Vector<T, Alloc>::Vector(Vector<T>&& other)
+Vector<T, Alloc>::Vector(Vector&& other) noexcept
 	: alloc(other.alloc)
 	, begin_(other.begin_)
 	, end_(other.end_)
@@ -141,6 +171,24 @@ Vector<T, Alloc>::Vector(Vector<T>&& other)
 	other.begin_ = nullptr;
 	other.end_ = nullptr;
 	other.cap_ = nullptr;
+}
+
+template <typename T, typename Alloc>
+Vector<T, Alloc>& Vector<T, Alloc>::operator= (Vector&& other) noexcept {
+	for (auto del = begin_; del != end_; ++del) {
+		AllocTraits::destroy(alloc, del);
+	}
+	AllocTraits::deallocate(alloc, begin_, this->capacity());
+
+	begin_ = other.begin_;
+	end_ = other.end_;
+	cap_ = other.cap_;
+
+	other.begin_ = nullptr;
+	other.end_ = nullptr;
+	other.cap_ = nullptr;
+
+	return *this;
 }
 
 template <typename T, typename Alloc>
@@ -281,9 +329,15 @@ void Vector<T, Alloc>::push_back(T&& value) {
 }
 
 template <typename T, typename Alloc>
+void Vector<T, Alloc>::pop_back() {
+	--end_;
+	AllocTraits::destroy(alloc, end_);
+}
+
+template <typename T, typename Alloc>
 T& Vector<T, Alloc>::operator[] (size_t index) {
 	if (index < this->size()) {
-		return begin_ + index;
+		return *(begin_ + index);
 	}
 	throw;
 }
@@ -291,7 +345,7 @@ T& Vector<T, Alloc>::operator[] (size_t index) {
 template <typename T, typename Alloc>
 const T& Vector<T, Alloc>::operator[] (size_t index) const {
 	if (index < this->size()) {
-		return begin_ + index;
+		return *(begin_ + index);
 	}
 	throw;
 }
