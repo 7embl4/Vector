@@ -1,6 +1,4 @@
 #include "Vector.h"
-#include <iostream>
-#include <vector>
 
 template <typename T, typename Alloc>
 template <typename Iter>
