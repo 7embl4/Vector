@@ -124,6 +124,7 @@ Vector<T, Alloc>::Vector(const Vector& other) {
 			AllocTraits::destroy(alloc, del);
 		}
 		AllocTraits::deallocate(alloc, begin_, other.size());
+		throw;
 	}
 	
 	end_ = it;
@@ -145,6 +146,7 @@ Vector<T, Alloc>& Vector<T, Alloc>::operator= (const Vector& other) {
 			AllocTraits::destroy(alloc, del);
 		}
 		AllocTraits::deallocate(alloc, new_begin, other.size());
+		throw;
 	}
 
 	for (auto del = begin_; del != end_; ++del) {
